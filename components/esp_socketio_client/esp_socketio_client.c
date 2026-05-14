@@ -98,19 +98,20 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
 
     switch (event_id) {
     case WEBSOCKET_EVENT_DATA:
-        ESP_LOGI(TAG, "WEBSOCKET_EVENT_DATA");
-        ESP_LOGI(TAG, "Received opcode=%d", data->op_code);
+        ESP_LOGD(TAG, "WEBSOCKET_EVENT_DATA");
+        ESP_LOGD(TAG, "Received opcode=%d", data->op_code);
         if (data->op_code == WS_TRANSPORT_OPCODES_CLOSE && data->data_len == 2) {
             ESP_LOGW(TAG, "Received closed message with code=%d", 256 * data->data_ptr[0] + data->data_ptr[1]);
         } else {
-            ESP_LOGW(TAG, "Received=%.*s", data->data_len, (char *)data->data_ptr);
+            /* Demoted from LOGW to LOGD: payload may contain auth tokens / API keys. */
+            ESP_LOGD(TAG, "Received=%.*s", data->data_len, (char *)data->data_ptr);
         }
 
         if (data->op_code == WS_TRANSPORT_OPCODES_PONG) {
-            ESP_LOGW(TAG, "Received WS PONG");
+            ESP_LOGD(TAG, "Received WS PONG");
         }
 
-        ESP_LOGI(TAG, "Total payload length=%d, data_len=%d, current payload offset=%d\r\n", data->payload_len, data->data_len, data->payload_offset);
+        ESP_LOGD(TAG, "Total payload length=%d, data_len=%d, current payload offset=%d\r\n", data->payload_len, data->data_len, data->payload_offset);
 
         if (data->payload_len == data->data_len && data->payload_len > 0) {
             if (data->op_code == WS_TRANSPORT_OPCODES_TEXT) {
@@ -124,7 +125,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                                 &client->ping_timeout,
                                 &client->max_payload
                             ) == ESP_OK) {
-                            ESP_LOGI(TAG, "Start Socket.IO ping timer: %d ms", (client->ping_interval + client->ping_timeout));
+                            ESP_LOGD(TAG, "Start Socket.IO ping timer: %d ms", (client->ping_interval + client->ping_timeout));
                             ESP_ERROR_CHECK(esp_timer_start_once(client->sio_ping_timer, (client->ping_interval + client->ping_timeout) * 1000));
                             // Send event OPEN
                             client->socketio_state = SOCKETIO_STATE_OPENED;
@@ -150,7 +151,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
                                 ESP_LOGE(TAG, "Error! No Socket.IO data found in CONNECT message.");
                                 break;
                             }
-                            ESP_LOGI(TAG, "Add namespace: %s, sid: %s", (nsp == NULL)? "/" : nsp, json_sid->valuestring);
+                            ESP_LOGD(TAG, "Add namespace: %s, sid: %s", (nsp == NULL)? "/" : nsp, json_sid->valuestring);
                             esp_socketio_ns_list_add_ns(client->ns_list, nsp, json_sid->valuestring);
                             socketio_event_data.socketio_packet = client->rx_packet;
                             esp_sio_client_dispatch_event(client, SOCKETIO_EVENT_NS_CONNECTED, &socketio_event_data, sizeof(esp_socketio_event_data_t));
@@ -196,7 +197,7 @@ static void websocket_event_handler(void *handler_args, esp_event_base_t base, i
             }
 
             if (client->socketio_state == SOCKETIO_STATE_WAIT_FOR_BINARY && data->op_code == WS_TRANSPORT_OPCODES_BINARY) {
-                ESP_LOGI(TAG, "Received binary");
+                ESP_LOGD(TAG, "Received binary");
                 esp_socketio_packet_add_binary_data(client->rx_packet, (const unsigned char *)data->data_ptr, data->data_len, false);
                 if (esp_socketio_packet_count_binary_data(client->rx_packet) == esp_socketio_packet_get_last_binary_index(client->rx_packet) + 1) {
                     client->socketio_state = SOCKETIO_STATE_CONNECTED;
@@ -323,7 +324,7 @@ esp_err_t esp_socketio_client_connect_nsp(esp_socketio_client_handle_t client, c
     }
     int send_len = esp_websocket_client_send_text(client->ws_client, sio_connect, len, portMAX_DELAY);
     if (send_len > 0) {
-        ESP_LOGI(TAG, "Send connect (size: %d) to \"%s\" successfully.", send_len, (nsp == NULL) ? "/" : nsp);
+        ESP_LOGD(TAG, "Send connect (size: %d) to \"%s\" successfully.", send_len, (nsp == NULL) ? "/" : nsp);
         ret = ESP_OK;
     } else {
         ESP_LOGE(TAG, "Send connect failed.");
@@ -373,7 +374,7 @@ esp_err_t esp_socketio_client_close(esp_socketio_client_handle_t client, TickTyp
 
 esp_err_t esp_socketio_client_destroy(esp_socketio_client_handle_t client)
 {
-    ESP_LOGI(TAG, "%s called", __FUNCTION__);
+    ESP_LOGD(TAG, "%s called", __FUNCTION__);
     esp_websocket_client_destroy(client->ws_client);
     client->ws_client = NULL;
     esp_timer_stop(client->sio_ping_timer);
