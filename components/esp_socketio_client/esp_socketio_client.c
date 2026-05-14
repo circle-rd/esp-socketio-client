@@ -302,7 +302,11 @@ esp_err_t esp_socketio_client_connect_nsp(esp_socketio_client_handle_t client, c
     if (json_string != NULL) {
         len += strlen(json_string);
     }
-    sio_connect = calloc(1, len);
+    /* +1 for the trailing NUL byte written by sprintf below. The wire
+     * length sent over the websocket stays equal to ``len``, so the
+     * extra byte never reaches the server. Without this, sprintf
+     * writes one byte past the allocation and corrupts the heap. */
+    sio_connect = calloc(1, len + 1);
     if (sio_connect == NULL) {
         ESP_LOGE(TAG, "Error allocating sio_connect memory.");
         return ESP_ERR_NO_MEM;
